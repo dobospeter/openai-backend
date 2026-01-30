@@ -16,7 +16,7 @@ return new class extends Migration
             $table->uuid('conversation_id');
             $table->json('metadata')->nullable();
             $table->timestamps();
-            
+
             $table->index('conversation_id');
             $table->index('user_id');
             $table->index('created_at');

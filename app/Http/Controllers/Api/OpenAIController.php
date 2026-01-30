@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 class OpenAIController extends Controller
 {
     protected OpenAIService $openAIService;
+
     protected MessageRepositoryInterface $messageRepository;
 
     public function __construct(
@@ -23,9 +24,6 @@ class OpenAIController extends Controller
 
     /**
      * Send a message to OpenAI
-     *
-     * @param SendMessageRequest $request
-     * @return JsonResponse
      */
     public function sendMessage(SendMessageRequest $request): JsonResponse
     {
@@ -53,9 +51,6 @@ class OpenAIController extends Controller
 
     /**
      * Get conversation history
-     *
-     * @param string $conversationId
-     * @return JsonResponse
      */
     public function getConversation(string $conversationId): JsonResponse
     {
@@ -88,8 +83,6 @@ class OpenAIController extends Controller
 
     /**
      * List recent conversations
-     *
-     * @return JsonResponse
      */
     public function listConversations(): JsonResponse
     {

@@ -10,9 +10,6 @@ class MessageRepository implements MessageRepositoryInterface
 {
     /**
      * Create a new message
-     *
-     * @param array $data
-     * @return Message
      */
     public function create(array $data): Message
     {
@@ -21,9 +18,6 @@ class MessageRepository implements MessageRepositoryInterface
 
     /**
      * Find messages by conversation ID
-     *
-     * @param string $conversationId
-     * @return Collection
      */
     public function findByConversationId(string $conversationId): Collection
     {
@@ -34,9 +28,6 @@ class MessageRepository implements MessageRepositoryInterface
 
     /**
      * Get latest conversations
-     *
-     * @param int $limit
-     * @return Collection
      */
     public function getLatestConversations(int $limit = 10): Collection
     {

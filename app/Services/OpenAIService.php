@@ -20,11 +20,6 @@ class OpenAIService
     /**
      * Send message to OpenAI and save conversation
      *
-     * @param string $message
-     * @param string|null $conversationId
-     * @param string $model
-     * @param float $temperature
-     * @return array
      * @throws \Exception
      */
     public function sendMessage(
@@ -49,22 +44,22 @@ class OpenAIService
         try {
             // Call OpenAI API
             $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . config('openai.api_key'),
+                'Authorization' => 'Bearer '.config('openai.api_key'),
                 'Content-Type' => 'application/json',
             ])
-            ->timeout(config('openai.timeout', 30))
-            ->post(config('openai.api_url') . '/chat/completions', [
-                'model' => $model,
-                'messages' => $conversationHistory,
-                'temperature' => $temperature,
-            ]);
+                ->timeout(config('openai.timeout', 30))
+                ->post(config('openai.api_url').'/chat/completions', [
+                    'model' => $model,
+                    'messages' => $conversationHistory,
+                    'temperature' => $temperature,
+                ]);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 Log::error('OpenAI API Error', [
                     'status' => $response->status(),
                     'body' => $response->body(),
                 ]);
-                throw new \Exception('OpenAI API request failed: ' . $response->body());
+                throw new \Exception('OpenAI API request failed: '.$response->body());
             }
 
             $responseData = $response->json();
@@ -100,9 +95,6 @@ class OpenAIService
 
     /**
      * Get conversation history formatted for OpenAI
-     *
-     * @param string $conversationId
-     * @return array
      */
     protected function getConversationHistory(string $conversationId): array
     {
