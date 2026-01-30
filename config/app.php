@@ -123,4 +123,5 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    'currentAppVersion' => env('APP_CURRENT_VERSION', '1.0.0')
 ];

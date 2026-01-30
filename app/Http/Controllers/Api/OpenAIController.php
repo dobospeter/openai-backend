@@ -95,6 +95,7 @@ class OpenAIController extends Controller
     {
         try {
             $conversations = $this->messageRepository->getLatestConversations(10);
+            dd($conversations);
 
             return response()->json([
                 'success' => true,
