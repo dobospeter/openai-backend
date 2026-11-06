@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+#
+# Pre-commit quality gate for the staged PHP files: lint, Pint, PHP_CodeSniffer, PHPStan.
+# Enabled with `composer hooks:install` (git config core.hooksPath .githooks). Skip once with --no-verify.
+
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+# Files that are checked (keep in sync with phpcs.xml.dist, phpstan.neon and the pint script in composer.json).
+scope='^(app|tests|database|routes)/.*\.php$|^bootstrap/(app|providers)\.php$|^config/(docs|openai)\.php$'
+# Laravel's own migration style is not PSR-12 shaped, Pint leaves migrations alone.
+pint_ignore='^database/migrations/'
+
+# Added, copied, modified and renamed files (not only modified ones, or new files would slip through).
+files=()
+while IFS= read -r -d '' file; do
+    [[ -f $file && $file =~ $scope ]] && files+=("$file")
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+
+if [[ ${#files[@]} -eq 0 ]]; then
+    echo "pre-commit: no staged PHP files to check."
+    exit 0
+fi
+
+pint_files=()
+for file in "${files[@]}"; do
+    [[ $file =~ $pint_ignore ]] || pint_files+=("$file")
+done
+
+step() { # step <n/total> <name> <command...>
+    local label=$1 name=$2 output
+    shift 2
+    printf "[%s] %-16s" "$label" "$name"
+    if output=$("$@" 2>&1); then
+        echo "OK!"
+    else
+        printf "Not OK!\n\n%s\n" "$output"
+        exit 1
+    fi
+}
+
+lint() { for f in "$@"; do php -l "$f" >/dev/null || return 1; done; }
+
+step "1/4" "php lint"       lint "${files[@]}"
+if [[ ${#pint_files[@]} -gt 0 ]]; then
+    step "2/4" "pint"       vendor/bin/pint --test "${pint_files[@]}"
+else
+    printf "[2/4] %-16sskipped\n" "pint"
+fi
+step "3/4" "code sniffer"   vendor/bin/phpcs --report=code --report-width=80 "${files[@]}"
+step "4/4" "phpstan"        vendor/bin/phpstan analyse --no-progress --error-format=table --memory-limit=1G "${files[@]}"
+
+echo "pre-commit: all checks passed."
