@@ -1,66 +1,68 @@
+# Local stack: nginx -> php-fpm (Laravel) -> PostgreSQL.
+#
+#   cp .env.example .env     (then set OPENAI_API_KEY and DOCS_PASSWORD)
+#   docker compose up -d --build
+#
+# The API is then served on http://localhost:${WEB_PORT:-8765}.
+name: openai-backend
+
 services:
-  api:
-    container_name: openai-api
+  app:
     build:
       context: .
-      dockerfile: ./docker/php/Dockerfile
+      dockerfile: docker/php/Dockerfile
+      target: development
     restart: unless-stopped
-    ports:
-      - "9000:9000"
+    # Same uid/gid as the host user, so files written to the bind mount stay yours.
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     working_dir: /var/www/html
     volumes:
       - ./:/var/www/html
-      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
-    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_ORGANIZATION=${OPENAI_ORGANIZATION}
-      - LOCAL_UID=${LOCAL_UID:-1000}
-      - LOCAL_GID=${LOCAL_GID:-1000}
+      # Inside the stack the database is always the "db" service, whatever .env says for host-side tools.
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: "5432"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
-      - openai-network
+      - backend
+
+  web:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8765}:80"
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    networks:
+      - backend
 
   db:
-    image: postgres:15
-    container_name: openai-postgres
+    image: postgres:16-alpine
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: openai_api
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: ${DB_DATABASE:-openai_api}
+      POSTGRES_USER: ${DB_USERNAME:-openai}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U openai_api" ]
-      interval: 10s
-      retries: 5
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Published on the loopback interface only, for host-side tools such as psql or a GUI client.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${DB_FORWARD_PORT:-5432}:5432"
     networks:
-      - openai-network
-
-    # Web Server
-  nginx:
-    image: nginx:1.25-alpine
-    container_name: openai-nginx
-    restart: unless-stopped
-    ports:
-      - "8765:80"
-    volumes:
-      - ./:/var/www/html
-      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
-    networks:
-      - openai-network
+      - backend
 
 networks:
-  openai-network:
-    driver: bridge
+  backend:
 
-#volumes:
-#    sail-mysql:
-#        driver: local
-#    sail-redis:
-#        driver: local
 volumes:
   db-data:

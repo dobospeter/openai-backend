@@ -1,63 +1,39 @@
-FROM php:8.3-fpm-alpine
+# syntax=docker/dockerfile:1
 
-# Set working directory
+# ---- base: PHP-FPM with the extensions the application needs --------------------------------
+FROM php:8.3-fpm-alpine AS base
+
+RUN apk add --no-cache git unzip libpq \
+    && apk add --no-cache --virtual .build-deps postgresql-dev \
+    && docker-php-ext-install -j"$(nproc)" pdo_pgsql bcmath opcache \
+    && apk del .build-deps
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+COPY docker/php/local.ini /usr/local/etc/php/conf.d/zz-app.ini
+COPY docker/php/entrypoint.sh /usr/local/bin/entrypoint
+
+# The container runs as an arbitrary user (see "user:" in docker-compose.yml), so give it a writable home.
+ENV HOME=/tmp \
+    COMPOSER_HOME=/tmp/composer \
+    COMPOSER_ALLOW_SUPERUSER=1
+
 WORKDIR /var/www/html
-
-# Install system dependencies
-RUN apk add --no-cache \
-    git \
-    curl \
-    libpng-dev \
-    oniguruma-dev \
-    libxml2-dev \
-    libzip-dev \
-    zip \
-    unzip \
-    mysql-client \
-    nodejs \
-    npm \
-    supervisor \
-    bash \
-    $PHPIZE_DEPS \
-    build-base \
-    postgresql-dev \
-&& rm -rf /var/cache/apk/*
-
-# Install PHP extensions
-RUN docker-php-ext-install \
-    pdo_mysql \
-    pdo_pgsql \
-    mbstring \
-    exif \
-    pcntl \
-    bcmath \
-    gd \
-    zip \
-    opcache
-
-# Install Redis extension
-RUN apk add --no-cache pcre-dev $PHPIZE_DEPS \
-    && pecl install redis \
-    && docker-php-ext-enable redis \
-    && apk del pcre-dev $PHPIZE_DEPS
-
-# Get latest Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-# Create system user to run Composer and Artisan Commands
-RUN adduser -u 1000 -D -S -G www-data www-data 2>/dev/null || true
-
-# Copy existing application directory contents
-COPY . /var/www/html
-
-# Copy existing application directory permissions
-COPY --chown=www-data:www-data . /var/www/html
-
-# Change current user to www-data
-USER www-data
-
-#RUN chown -R 1000:1000 /app/storage
-
-# Expose port 9000 and start php-fpm server
 EXPOSE 9000
+ENTRYPOINT ["sh", "/usr/local/bin/entrypoint"]
 CMD ["php-fpm"]
+
+# ---- development: source code is bind mounted, dependencies are installed on first start ------
+FROM base AS development
+
+# ---- production: self-contained image ---------------------------------------------------------
+FROM base AS production
+
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-interaction --no-progress --no-scripts --prefer-dist --no-autoloader
+
+COPY --chown=www-data:www-data . .
+RUN composer dump-autoload --no-dev --optimize --no-interaction \
+    && chown -R www-data:www-data storage bootstrap/cache
+
+ENV RUN_MIGRATIONS=false
+USER www-data

@@ -1,43 +1,59 @@
 <?php
 
+declare(strict_types=1);
+
 return [
     /*
     |--------------------------------------------------------------------------
-    | OpenAI API Key
+    | Credentials and endpoint
     |--------------------------------------------------------------------------
-    |
-    | Your OpenAI API key from https://platform.openai.com/account/api-keys
-    |
     */
     'api_key' => env('OPENAI_API_KEY'),
-
-    /*
-    |--------------------------------------------------------------------------
-    | OpenAI API URL
-    |--------------------------------------------------------------------------
-    |
-    | The base URL for OpenAI API
-    |
-    */
+    'organization' => env('OPENAI_ORGANIZATION'),
     'api_url' => env('OPENAI_API_URL', 'https://api.openai.com/v1'),
 
     /*
     |--------------------------------------------------------------------------
-    | Default Model
+    | Request timeout (seconds)
     |--------------------------------------------------------------------------
-    |
-    | The default OpenAI model to use
-    |
     */
-    'model' => env('OPENAI_MODEL', 'gpt-3.5-turbo'),
+    'timeout' => (int) env('OPENAI_TIMEOUT', 30),
 
     /*
     |--------------------------------------------------------------------------
-    | Request Timeout
+    | Conversation defaults
     |--------------------------------------------------------------------------
     |
-    | Timeout for OpenAI API requests in seconds
+    | Applied to conversations created without an explicit model / temperature.
     |
     */
-    'timeout' => env('OPENAI_TIMEOUT', 30),
+    'model' => env('OPENAI_MODEL', 'gpt-3.5-turbo'),
+    'temperature' => (float) env('OPENAI_TEMPERATURE', 0.7),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Models a client may pick (comma separated in the environment)
+    |--------------------------------------------------------------------------
+    */
+    'allowed_models' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('OPENAI_ALLOWED_MODELS', 'gpt-3.5-turbo,gpt-4,gpt-4-turbo-preview'))
+    ))),
+
+    /*
+    |--------------------------------------------------------------------------
+    | History window
+    |--------------------------------------------------------------------------
+    |
+    | How many of the most recent messages are sent along with a new question.
+    |
+    */
+    'history_limit' => (int) env('OPENAI_HISTORY_LIMIT', 50),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Rate limit of the message endpoint (requests per minute and client)
+    |--------------------------------------------------------------------------
+    */
+    'messages_per_minute' => (int) env('OPENAI_MESSAGES_PER_MINUTE', 20),
 ];
